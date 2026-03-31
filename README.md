@@ -7,12 +7,16 @@ Middleware para deploy no Railway que fica entre Botmaker e Creatio.
 - `GET /health`: healthcheck simples do Railway
 - `GET /ready`: readiness com checagem de configuração mínima
 - `GET /api/botmaker/status`: status da API interna da Botmaker
-- `POST /webhooks/botmaker`: recebe o webhook da Botmaker, valida `auth-bm-token` e encaminha o payload bruto para o custom webservice da Creatio
+- `POST /webhooks/botmaker`: alias para mensagem recebida
+- `POST /webhooks/botmaker/incoming`: webhook de mensagem recebida da Botmaker
+- `POST /webhooks/botmaker/outgoing`: webhook de mensagem de saída da Botmaker
+- `POST /webhooks/botmaker/status`: webhook de status de mensagem da Botmaker
 - `POST /api/botmaker/send-text`: endpoint interno autenticado para enviar texto para a Botmaker sem expor o token da API no Creatio
+- `POST /api/botmaker/send-read-typing-feedback`: endpoint interno autenticado para marcar leitura ou typing na Botmaker
 
 ## Fluxo inicial
 
-1. Botmaker chama o endpoint público do Railway em `/webhooks/botmaker`.
+1. Botmaker chama o endpoint público do Railway em `/webhooks/botmaker/incoming` ou usa o alias `/webhooks/botmaker`.
 2. O middleware valida o header `auth-bm-token` se `BOTMAKER_WEBHOOK_TOKEN` estiver configurado.
 3. O middleware ignora eventos que não pareçam mensagens de usuário.
 4. O middleware autentica no Creatio via cookie se `CREATIO_AUTH_URL`, `CREATIO_USERNAME` e `CREATIO_PASSWORD` estiverem preenchidos.
@@ -94,6 +98,33 @@ Resposta esperada:
 }
 ```
 
+Endpoint de feedback de leitura/typing:
+
+```text
+POST /api/botmaker/send-read-typing-feedback
+Header: x-api-key: <INTERNAL_API_KEY>
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "chatId": "ABC123DEF456",
+  "isTyping": true
+}
+```
+
+ou
+
+```json
+{
+  "channelId": "botproject-whatsapp-5511999999999",
+  "contactId": "5511998887777",
+  "isTyping": false
+}
+```
+
 ## URLs típicas do Creatio
 
 Autenticação:
@@ -122,6 +153,9 @@ Entrada pública da Botmaker:
 
 ```text
 POST /webhooks/botmaker
+POST /webhooks/botmaker/incoming
+POST /webhooks/botmaker/outgoing
+POST /webhooks/botmaker/status
 Header: auth-bm-token: <BOTMAKER_WEBHOOK_TOKEN>
 ```
 
@@ -130,7 +164,68 @@ Saída interna para uso pela Creatio:
 ```text
 POST /api/botmaker/send-text
 Header: x-api-key: <INTERNAL_API_KEY>
+POST /api/botmaker/send-read-typing-feedback
 ```
+
+## Modelo de dados sugerido na Creatio
+
+O webhook já entrega dados suficientes para você modelar uma entidade de conversa e uma entidade de mensagens.
+
+Entidade `UsrBotmakerConversation`:
+- `UsrChatId`
+- `UsrChannelId`
+- `UsrContactId`
+- `UsrCurrentStatus`
+- `UsrLastInboundAt`
+- `UsrLastOutboundAt`
+- `UsrContact`
+
+Entidade `UsrBotmakerMessage`:
+- `UsrExternalMessageId`
+- `UsrConversation`
+- `UsrDirection` (`Inbound`, `Outbound`, `Status`)
+- `UsrSenderType` (`user`, `bot`, `agent`, `system`)
+- `UsrMessageText`
+- `UsrWebhookPayload`
+- `UsrRawPayload`
+- `UsrOccurredOn`
+- `UsrDeliveryStatus`
+
+## Telas sugeridas na Creatio
+
+Para operação comercial do produto, a recomendação é:
+
+1. Página de conversa
+- cabeçalho com `chatId`, canal, contato e status
+- detalhe de mensagens em ordem cronológica
+- botão de resposta manual
+- botão para typing/read feedback
+
+2. Lista de conversas
+- filtros por canal, status, contato e data da última mensagem
+- indicador de novas mensagens
+
+3. Log técnico
+- payload bruto inbound/outbound
+- response do middleware
+- correlation por `messageId`
+
+## Mapeamento dos webhooks da Botmaker
+
+Na Botmaker, as três URLs podem ser apontadas assim:
+
+```text
+URL de notificação de mensagem recebida -> /webhooks/botmaker/incoming
+URL de notificação de mensagem de saída -> /webhooks/botmaker/outgoing
+URL de notificação do status da mensagem -> /webhooks/botmaker/status
+```
+
+O middleware injeta `_middlewareSourceType` no payload encaminhado à Creatio com um destes valores:
+- `incoming`
+- `outgoing`
+- `status`
+
+Isso permite que a Creatio trate cada evento de forma diferente sem depender da UI da Botmaker.
 
 ## Deploy no Railway
 

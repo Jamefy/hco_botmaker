@@ -8,8 +8,9 @@ async function authenticate(config) {
   const response = await fetch(authUrl, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      accept: "application/json"
+      "content-type": "application/json; charset=utf-8",
+      accept: "application/json",
+      ForceUseSession: "true"
     },
     body: JSON.stringify({
       UserName: username,

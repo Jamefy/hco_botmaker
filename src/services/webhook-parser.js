@@ -34,6 +34,21 @@ function summarizeWebhook(payload) {
   };
 }
 
+function summarizeBotmakerEvent(payload, sourceType = "incoming") {
+  return {
+    sourceType,
+    ...summarizeWebhook(payload),
+    rawStatus:
+      payload?.status ||
+      payload?.lastStatus?.status ||
+      payload?.eventType ||
+      payload?.notificationType ||
+      "",
+    hasVariableChanges: Boolean(payload?.variableChanges),
+    hasMessageContent: Boolean(pickText(payload))
+  };
+}
+
 function isEligibleUserMessage(payload) {
   const summary = summarizeWebhook(payload);
   if (summary.from && summary.from.toLowerCase() !== "user") {
@@ -49,5 +64,6 @@ function firstNotEmpty(...values) {
 
 module.exports = {
   isEligibleUserMessage,
+  summarizeBotmakerEvent,
   summarizeWebhook
 };
