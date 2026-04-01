@@ -55,8 +55,9 @@ async function sendReadTypingFeedback(config, payload) {
   const endpoint = `${config.botmaker.apiBaseUrl.replace(/\/$/, "")}/chats-actions/send-read-typing-feedback`;
 
   const body = {
-    chat: getChatReference(payload),
-    isTyping: Boolean(payload.isTyping)
+    channelId: payload.channelId,
+    contactId: payload.contactId,
+    typing: Boolean(payload.isTyping)
   };
 
   const response = await fetch(endpoint, {

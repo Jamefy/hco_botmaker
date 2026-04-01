@@ -32,15 +32,13 @@ function validateReadTypingPayload(payload) {
 
   const normalized = {
     isTyping: Boolean(payload.isTyping),
-    chatId: normalizeOptionalString(payload.chatId),
     channelId: normalizeOptionalString(payload.channelId),
     contactId: normalizeOptionalString(payload.contactId)
   };
 
-  const hasChatId = Boolean(normalized.chatId);
   const hasPair = Boolean(normalized.channelId && normalized.contactId);
-  if (!hasChatId && !hasPair) {
-    const error = new Error("Provide 'chatId' or both 'channelId' and 'contactId'");
+  if (!hasPair) {
+    const error = new Error("Provide both 'channelId' and 'contactId'");
     error.status = 400;
     throw error;
   }
